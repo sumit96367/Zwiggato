@@ -1,0 +1,253 @@
+/*
+ * Simplified Jenkinsfile for Zwiggato Project
+ * Based on Dr. Kastro Kiran's DevOps Project Template
+ * 
+ * IMPORTANT: Before using this file, update:
+ * 1. DockerHub username in stages (replace 'your-dockerhub-username')
+ * 2. Email address in post actions
+ * 3. Git repository URL if using different repo
+ * 4. SonarQube project names if needed
+ */
+
+pipeline {
+    agent any
+
+    tools {
+        jdk 'jdk17'
+        nodejs 'node23'  // Change to 'node18' or 'node20' if needed
+    }
+
+    environment {
+        SCANNER_HOME = tool 'sonar-scanner'
+        DOCKERHUB_USERNAME = 'your-dockerhub-username'  // CHANGE THIS!
+    }
+
+    stages {
+        stage ("Clean Workspace") {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage ("Git Checkout") {
+            steps {
+                script {
+                    checkout scm
+                    // Or use: git 'https://github.com/YOUR_USERNAME/YOUR_REPO.git'
+                }
+            }
+        }
+
+        stage("SonarQube Analysis - Backend") {
+            steps {
+                dir('backend') {
+                    withSonarQubeEnv('sonar-server') {
+                        sh '''
+                            $SCANNER_HOME/bin/sonar-scanner \
+                            -Dsonar.projectName=zwiggato-backend \
+                            -Dsonar.projectKey=zwiggato-backend
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage("SonarQube Analysis - Frontend") {
+            steps {
+                dir('frontend') {
+                    withSonarQubeEnv('sonar-server') {
+                        sh '''
+                            $SCANNER_HOME/bin/sonar-scanner \
+                            -Dsonar.projectName=zwiggato-frontend \
+                            -Dsonar.projectKey=zwiggato-frontend
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage("Code Quality Gate") {
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+                }
+            }
+        }
+
+        stage("Install Backend NPM Dependencies") {
+            steps {
+                dir('backend') {
+                    sh "npm install"
+                }
+            }
+        }
+
+        stage("Install Frontend NPM Dependencies") {
+            steps {
+                dir('frontend') {
+                    sh "npm install"
+                }
+            }
+        }
+
+        stage('OWASP FS SCAN - Backend') {
+            steps {
+                dir('backend') {
+                    dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --update -n', odcInstallation: 'DP-Check'
+                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                }
+            }
+        }
+
+        stage('OWASP FS SCAN - Frontend') {
+            steps {
+                dir('frontend') {
+                    dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --update -n', odcInstallation: 'DP-Check'
+                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                }
+            }
+        }
+
+        stage ("Trivy File Scan - Backend") {
+            steps {
+                dir('backend') {
+                    sh "trivy fs . > ../trivy-backend.txt || true"
+                }
+            }
+        }
+
+        stage ("Trivy File Scan - Frontend") {
+            steps {
+                dir('frontend') {
+                    sh "trivy fs . > ../trivy-frontend.txt || true"
+                }
+            }
+        }
+
+        stage ("Build Backend Docker Image") {
+            steps {
+                dir('backend') {
+                    sh "docker build -t zwiggato-backend ."
+                }
+            }
+        }
+
+        stage ("Build Frontend Docker Image") {
+            steps {
+                dir('frontend') {
+                    sh "docker build -t zwiggato-frontend ."
+                }
+            }
+        }
+
+        stage ("Tag & Push Backend to DockerHub") {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker') {
+                        sh "docker tag zwiggato-backend ${DOCKERHUB_USERNAME}/zwiggato-backend:latest"
+                        sh "docker push ${DOCKERHUB_USERNAME}/zwiggato-backend:latest"
+                    }
+                }
+            }
+        }
+
+        stage ("Tag & Push Frontend to DockerHub") {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker') {
+                        sh "docker tag zwiggato-frontend ${DOCKERHUB_USERNAME}/zwiggato-frontend:latest"
+                        sh "docker push ${DOCKERHUB_USERNAME}/zwiggato-frontend:latest"
+                    }
+                }
+            }
+        }
+
+        stage('Docker Scout - Backend Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                        sh "docker-scout quickview ${DOCKERHUB_USERNAME}/zwiggato-backend:latest || true"
+                        sh "docker-scout cves ${DOCKERHUB_USERNAME}/zwiggato-backend:latest || true"
+                        sh "docker-scout recommendations ${DOCKERHUB_USERNAME}/zwiggato-backend:latest || true"
+                    }
+                }
+            }
+        }
+
+        stage('Docker Scout - Frontend Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                        sh "docker-scout quickview ${DOCKERHUB_USERNAME}/zwiggato-frontend:latest || true"
+                        sh "docker-scout cves ${DOCKERHUB_USERNAME}/zwiggato-frontend:latest || true"
+                        sh "docker-scout recommendations ${DOCKERHUB_USERNAME}/zwiggato-frontend:latest || true"
+                    }
+                }
+            }
+        }
+
+        stage ("Deploy Backend Container") {
+            steps {
+                script {
+                    sh '''
+                        docker stop zwiggato-backend || true
+                        docker rm zwiggato-backend || true
+                        docker run -d --name zwiggato-backend -p 5000:5000 ${DOCKERHUB_USERNAME}/zwiggato-backend:latest
+                    '''
+                }
+            }
+        }
+
+        stage ("Deploy Frontend Container") {
+            steps {
+                script {
+                    sh '''
+                        docker stop zwiggato-frontend || true
+                        docker rm zwiggato-frontend || true
+                        docker run -d --name zwiggato-frontend -p 3000:80 ${DOCKERHUB_USERNAME}/zwiggato-frontend:latest
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                // Combine Trivy reports
+                sh "cat trivy-backend.txt trivy-frontend.txt > trivy.txt || true"
+            }
+            
+            emailext (
+                attachLog: true,
+                subject: "'${currentBuild.result}'",
+                body: """
+                    <html>
+                    <body>
+                        <div style="background-color: #FFA07A; padding: 10px; margin-bottom: 10px;">
+                            <p style="color: white; font-weight: bold;">Project: ${env.JOB_NAME}</p>
+                        </div>
+                        <div style="background-color: #90EE90; padding: 10px; margin-bottom: 10px;">
+                            <p style="color: white; font-weight: bold;">Build Number: ${env.BUILD_NUMBER}</p>
+                        </div>
+                        <div style="background-color: #87CEEB; padding: 10px; margin-bottom: 10px;">
+                            <p style="color: white; font-weight: bold;">URL: ${env.BUILD_URL}</p>
+                        </div>
+                        <div style="background-color: #FFB6C1; padding: 10px; margin-bottom: 10px;">
+                            <p style="color: white; font-weight: bold;">Docker Images:</p>
+                            <ul style="color: white;">
+                                <li>Backend: ${DOCKERHUB_USERNAME}/zwiggato-backend:latest</li>
+                                <li>Frontend: ${DOCKERHUB_USERNAME}/zwiggato-frontend:latest</li>
+                            </ul>
+                        </div>
+                    </body>
+                    </html>
+                """,
+                to: 'your-email@example.com',  // CHANGE THIS!
+                mimeType: 'text/html',
+                attachmentsPattern: 'trivy.txt'
+            )
+        }
+    }
+}
+
