@@ -8,9 +8,9 @@ pipeline {
 
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
-        DOCKERHUB_USERNAME = 'your-dockerhub-username'  // CHANGE THIS: Your DockerHub username
-        BACKEND_IMAGE = "${DOCKERHUB_USERNAME}/zwiggato-backend"
-        FRONTEND_IMAGE = "${DOCKERHUB_USERNAME}/zwiggato-frontend"
+        DOCKERHUB_USERNAME = 'sumitsen2004'  // CHANGE THIS: Your DockerHub username
+        BACKEND_IMAGE = "${sumitsen2004}/zwiggato-backend"
+        FRONTEND_IMAGE = "${sumitsen2004}/zwiggato-frontend"
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
@@ -301,7 +301,7 @@ pipeline {
                     </body>
                     </html>
                 """,
-                to: 'your-email@example.com',  // CHANGE THIS: Your email address
+                to: 'sumitsen2004@gmail.com',  // CHANGE THIS: Your email address
                 mimeType: 'text/html',
                 attachmentsPattern: 'trivy-combined.txt'
             )

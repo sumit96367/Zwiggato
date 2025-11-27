@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: zwiggato/backend:latest
+        image: sumitsen2004/zwiggato-backend
         imagePullPolicy: Always
         ports:
         - containerPort: 5000

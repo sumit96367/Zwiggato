@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: zwiggato/frontend:latest
+        image: sumitsen2004/zwiggato-backend
         imagePullPolicy: Always
         ports:
         - containerPort: 80
