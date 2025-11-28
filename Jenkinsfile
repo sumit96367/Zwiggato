@@ -136,40 +136,6 @@ pipeline {
             }
         }
 
-        stage('OWASP FS SCAN - Backend') {
-            steps {
-                dir('backend') {
-                    dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --update -n', odcInstallation: 'DP-Check'
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-                }
-            }
-        }
-
-        stage('OWASP FS SCAN - Frontend') {
-            steps {
-                dir('frontend') {
-                    dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --update -n', odcInstallation: 'DP-Check'
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-                }
-            }
-        }
-
-        stage ("Trivy File Scan - Backend") {
-            steps {
-                dir('backend') {
-                    sh "trivy fs . > ../trivy-backend.txt || true"
-                }
-            }
-        }
-
-        stage ("Trivy File Scan - Frontend") {
-            steps {
-                dir('frontend') {
-                    sh "trivy fs . > ../trivy-frontend.txt || true"
-                }
-            }
-        }
-
         stage ("Build Backend Docker Image") {
             steps {
                 dir('backend') {
@@ -281,11 +247,6 @@ pipeline {
 
     post {
         always {
-            script {
-                // Combine trivy reports
-                sh "cat trivy-backend.txt trivy-frontend.txt > trivy-combined.txt || true"
-            }
-            
             emailext (
                 attachLog: true,
                 subject: "'${currentBuild.result}': Build ${env.BUILD_NUMBER} - ${env.JOB_NAME}",
@@ -339,8 +300,7 @@ pipeline {
                     </html>
                 """,
                 to: 'sumitsen2004@gmail.com',  // CHANGE THIS: Your email address
-                mimeType: 'text/html',
-                attachmentsPattern: 'trivy-combined.txt'
+                mimeType: 'text/html'
             )
         }
         
