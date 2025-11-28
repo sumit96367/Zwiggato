@@ -44,6 +44,11 @@ apt update -y
 apt install temurin-17-jdk -y
 java --version
 
+# Install Node.js system dependencies (required for Node.js)
+echo "[3.5/10] Installing Node.js system dependencies..."
+apt install -y libatomic1 build-essential
+echo "Node.js dependencies installed"
+
 # Install Jenkins
 echo "[4/10] Installing Jenkins..."
 curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
