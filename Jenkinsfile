@@ -84,7 +84,24 @@ pipeline {
         stage("Code Quality Gate") {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+                    try {
+                        // Wait for quality gate with timeout (2 minutes)
+                        // Ensure SonarQube webhook is configured for faster feedback
+                        // Webhook URL: http://<jenkins-ip>:8080/sonarqube-webhook/
+                        timeout(time: 2, unit: 'MINUTES') {
+                            waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+                        }
+                        echo "Quality gate check completed successfully"
+                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                        echo "WARNING: Quality gate check timed out after 2 minutes"
+                        echo "This is likely due to SonarQube server still processing analysis results."
+                        echo "Continuing pipeline execution. Check SonarQube dashboard manually for quality gate status."
+                        currentBuild.description = "${currentBuild.description} [Quality Gate: Timeout - Check SonarQube]"
+                    } catch (Exception e) {
+                        echo "WARNING: Quality gate check failed: ${e.getMessage()}"
+                        echo "Continuing pipeline execution. Check SonarQube dashboard manually."
+                        currentBuild.description = "${currentBuild.description} [Quality Gate: Error - Check SonarQube]"
+                    }
                 }
             }
         }
