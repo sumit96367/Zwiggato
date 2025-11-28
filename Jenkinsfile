@@ -29,33 +29,53 @@ pipeline {
             }
         }
 
-        stage("SonarQube Analysis - Backend") {
-            steps {
-                dir('backend') {
-                    withSonarQubeEnv('sonar-server') {
-                        sh """
-                            ${SCANNER_HOME}/bin/sonar-scanner \
-                            -Dsonar.projectName=zwiggato-backend \
-                            -Dsonar.projectKey=zwiggato-backend \
-                            -Dsonar.sources=src \
-                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-                        """
+        stage("SonarQube Analysis") {
+            parallel {
+                stage("SonarQube Analysis - Backend") {
+                    steps {
+                        dir('backend') {
+                            withSonarQubeEnv('sonar-server') {
+                                script {
+                                    // Check if coverage file exists before adding it
+                                    def coverageCmd = ""
+                                    if (fileExists('coverage/lcov.info')) {
+                                        coverageCmd = "-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info"
+                                    }
+                                    sh """
+                                        ${SCANNER_HOME}/bin/sonar-scanner \
+                                        -Dsonar.projectName=zwiggato-backend \
+                                        -Dsonar.projectKey=zwiggato-backend \
+                                        -Dsonar.sources=src \
+                                        -Dsonar.scanner.skipDuplicated=true \
+                                        ${coverageCmd}
+                                    """
+                                }
+                            }
+                        }
                     }
                 }
-            }
-        }
-
-        stage("SonarQube Analysis - Frontend") {
-            steps {
-                dir('frontend') {
-                    withSonarQubeEnv('sonar-server') {
-                        sh """
-                            ${SCANNER_HOME}/bin/sonar-scanner \
-                            -Dsonar.projectName=zwiggato-frontend \
-                            -Dsonar.projectKey=zwiggato-frontend \
-                            -Dsonar.sources=src \
-                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-                        """
+                
+                stage("SonarQube Analysis - Frontend") {
+                    steps {
+                        dir('frontend') {
+                            withSonarQubeEnv('sonar-server') {
+                                script {
+                                    // Check if coverage file exists before adding it
+                                    def coverageCmd = ""
+                                    if (fileExists('coverage/lcov.info')) {
+                                        coverageCmd = "-Dsonar.javascript.lcov.reportPaths=coverage/lcov.info"
+                                    }
+                                    sh """
+                                        ${SCANNER_HOME}/bin/sonar-scanner \
+                                        -Dsonar.projectName=zwiggato-frontend \
+                                        -Dsonar.projectKey=zwiggato-frontend \
+                                        -Dsonar.sources=src \
+                                        -Dsonar.scanner.skipDuplicated=true \
+                                        ${coverageCmd}
+                                    """
+                                }
+                            }
+                        }
                     }
                 }
             }
