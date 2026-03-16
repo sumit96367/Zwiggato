@@ -54,6 +54,26 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Database test endpoint
+app.get('/api/test-db', async (req, res) => {
+  try {
+    const state = mongoose.connection.readyState;
+    const states = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting',
+    };
+    res.json({ 
+      status: 'API is alive', 
+      database: states[state],
+      uri_exists: !!process.env.MONGODB_URI
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // API routes
 app.use('/metrics', metricsRoutes);
 app.use('/api/auth', authRoutes);
