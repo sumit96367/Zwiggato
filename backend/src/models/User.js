@@ -81,14 +81,22 @@ userSchema.methods.matchPassword = async function(enteredPassword) {
 
 // Method to generate JWT token
 userSchema.methods.generateToken = function() {
-  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
+  const secret = process.env.JWT_SECRET || 'dev_secret_key_change_me';
+  if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+    console.error('--- ❌ CRITICAL: JWT_SECRET is missing in production ---');
+  }
+  return jwt.sign({ id: this._id }, secret, {
     expiresIn: process.env.JWT_EXPIRE || '24h'
   });
 };
 
 // Method to generate refresh token
 userSchema.methods.generateRefreshToken = function() {
-  return jwt.sign({ id: this._id }, process.env.JWT_REFRESH_SECRET, {
+  const secret = process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret_key_change_me';
+  if (!process.env.JWT_REFRESH_SECRET && process.env.NODE_ENV === 'production') {
+    console.error('--- ❌ CRITICAL: JWT_REFRESH_SECRET is missing in production ---');
+  }
+  return jwt.sign({ id: this._id }, secret, {
     expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d'
   });
 };
