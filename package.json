@@ -1,0 +1,11 @@
+{
+  "name": "zwiggato-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "build-frontend": "cd frontend && npm install && npm run build",
+    "build-backend": "cd backend && npm install",
+    "vercel-build": "npm run build-frontend"
+  }
+}
